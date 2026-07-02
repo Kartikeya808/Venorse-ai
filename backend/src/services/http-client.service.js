@@ -22,9 +22,15 @@ const withRetry = async (fn, retries = 3, delay = 1000) => {
 };
 
 const processDocument = async (documentId, filePath) => {
+  const fs = require("fs");
   const absPath = path.resolve(__dirname, "..", "..", filePath);
+  const fileBuffer = fs.readFileSync(absPath);
   const { data } = await withRetry(() =>
-    agentClient.post("/api/process-document", { documentId, filePath: absPath })
+    agentClient.post("/api/process-document", {
+      documentId,
+      fileContent: fileBuffer.toString("base64"),
+      fileName: path.basename(filePath),
+    })
   );
   return data;
 };

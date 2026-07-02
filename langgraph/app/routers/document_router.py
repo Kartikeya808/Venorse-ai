@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/process-document", response_model=ProcessDocumentResponse)
 async def process_document(req: ProcessDocumentRequest):
-    result = await run_document_agent(req.documentId, req.filePath)
+    result = await run_document_agent(req.documentId, req.fileContent, req.fileName)
     return ProcessDocumentResponse(
         document_id=req.documentId,
         summary=result.get("summary", ""),

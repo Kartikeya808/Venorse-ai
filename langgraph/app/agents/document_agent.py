@@ -1,4 +1,7 @@
+import base64
 import logging
+import os
+import tempfile
 from typing import TypedDict, Literal
 
 from langgraph.graph import StateGraph, END
@@ -12,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 class DocumentState(TypedDict):
     document_id: str
-    file_path: str
+    file_content: str
+    file_name: str
     raw_text: str
     chunks: list[str]
     summary: str
@@ -20,12 +24,24 @@ class DocumentState(TypedDict):
 
 
 def extract_node(state: DocumentState) -> dict:
+    tmp = None
     try:
-        text = extract_text(state["file_path"])
+        data = base64.b64decode(state["file_content"])
+        _, ext = os.path.splitext(state["file_name"])
+        with tempfile.NamedTemporaryFile(suffix=ext or ".bin", delete=False) as f:
+            f.write(data)
+            tmp = f.name
+        text = extract_text(tmp)
         return {"raw_text": text, "error": ""}
     except Exception as e:
         logger.error("Extract failed: %s", e)
         return {"error": str(e)}
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
 
 
 def chunk_node(state: DocumentState) -> dict:
@@ -59,7 +75,7 @@ def should_continue(state: DocumentState) -> Literal["chunk", "summarize", "__en
     if state.get("error"):
         return "__end__"
     if not state.get("raw_text"):
-        return "chunk" if state.get("raw_text") else "__end__"
+        return "__end__"
     if not state.get("chunks"):
         return "chunk"
     return "summarize"
@@ -83,10 +99,11 @@ def build_document_graph():
 document_graph = build_document_graph()
 
 
-async def run_document_agent(document_id: str, file_path: str) -> dict:
+async def run_document_agent(document_id: str, file_content: str, file_name: str) -> dict:
     result = await document_graph.ainvoke({
         "document_id": document_id,
-        "file_path": file_path,
+        "file_content": file_content,
+        "file_name": file_name,
         "raw_text": "",
         "chunks": [],
         "summary": "",

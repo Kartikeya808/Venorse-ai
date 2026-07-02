@@ -3,7 +3,8 @@ from pydantic import BaseModel
 
 class ProcessDocumentRequest(BaseModel):
     documentId: str
-    filePath: str
+    fileContent: str
+    fileName: str
 
 
 class ProcessDocumentResponse(BaseModel):

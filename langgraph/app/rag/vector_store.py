@@ -15,7 +15,7 @@ class HFEmbeddingFunction(EmbeddingFunction):
     def __init__(self):
         self._api_key = settings.hf_api_key
         self._model = settings.hf_embedding_model
-        self._url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self._model}"
+        self._url = "https://router.huggingface.co/v1/embeddings"
 
     def __call__(self, input):
         texts = input if isinstance(input, list) else [input]
@@ -28,12 +28,15 @@ class HFEmbeddingFunction(EmbeddingFunction):
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json",
                 },
-                json={"inputs": batch},
+                json={
+                    "model": self._model,
+                    "input": batch,
+                },
                 timeout=60,
             )
             resp.raise_for_status()
             data = resp.json()
-            all_embeddings.extend(data)
+            all_embeddings.extend([e["embedding"] for e in data["data"]])
         return all_embeddings
 
 

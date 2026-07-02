@@ -46,13 +46,17 @@ def extract_node(state: DocumentState) -> dict:
 
 def chunk_node(state: DocumentState) -> dict:
     try:
+        raw = state["raw_text"]
+        logger.info("Chunking %d chars of text", len(raw))
         chunks = []
         chunk_metas = []
-        for chunk_text_val, meta in chunk_text(state["raw_text"]):
+        for chunk_text_val, meta in chunk_text(raw):
             chunks.append(chunk_text_val)
             chunk_metas.append({"doc_id": state["document_id"], **meta})
 
-        add_document_chunks(chunks, chunk_metas, state["document_id"])
+        logger.info("Produced %d chunks", len(chunks))
+        if chunks:
+            add_document_chunks(chunks, chunk_metas, state["document_id"])
         return {"chunks": chunks}
     except Exception as e:
         logger.error("Chunking failed: %s", e, exc_info=True)

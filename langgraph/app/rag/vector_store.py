@@ -3,19 +3,38 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
+from chromadb import EmbeddingFunction
 from chromadb.config import Settings as ChromaSettings
-from chromadb.utils import embedding_functions
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_default_ef = None
+
+class GroqEmbeddingFunction(EmbeddingFunction):
+    def __init__(self):
+        from groq import Groq
+        self._client = Groq(api_key=settings.groq_api_key)
+
+    def __call__(self, input):
+        texts = input if isinstance(input, list) else [input]
+        all_embeddings = []
+        for i in range(0, len(texts), 20):
+            batch = texts[i:i + 20]
+            resp = self._client.embeddings.create(
+                model="nomic-embed-text-v1.5",
+                input=batch,
+            )
+            all_embeddings.extend([e.embedding for e in resp.data])
+        return all_embeddings
+
+
+_ef = None
 
 def _get_ef():
-    global _default_ef
-    if _default_ef is None:
-        _default_ef = embedding_functions.DefaultEmbeddingFunction()
-    return _default_ef
+    global _ef
+    if _ef is None:
+        _ef = GroqEmbeddingFunction()
+    return _ef
 
 
 def get_chroma_client() -> chromadb.ClientAPI:

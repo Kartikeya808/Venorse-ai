@@ -18,7 +18,7 @@ class FinancialState(TypedDict):
 
 def retrieve_node(state: FinancialState) -> dict:
     try:
-        docs = search(f"financial data for {state.get('company_name', state['company_id'])}", top_k=10)
+        docs = search(f"{state.get('company_name', state['company_id'])} {state.get('company_name', state['company_id'])} financial analysis revenue income balance sheet cash flow margins growth", top_k=10)
         context = format_context(docs)
         return {"context": context, "error": ""}
     except Exception as e:

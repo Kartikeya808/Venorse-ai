@@ -78,15 +78,35 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
 def analyze_node(state: FinancialMetricsState) -> dict:
     system = (
-        "IMPORTANT: Do NOT think step by step. Do NOT include any reasoning. "
-        "Return ONLY valid JSON with no other text before or after.\n\n"
-        "You are a financial analyst. "
-        "Return a JSON object with two keys: analysis_text (string) and metrics (array). "
-        "Each metric has: title, value, change, trend (up/down), chartType (area/line/bar), "
-        "data (8 objects each with a value number), "
-        "explain (object with title, value, meaning, formula, benchmark, interpretation). "
-        "Cover: Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, Debt-to-Equity, ROE, P/E Ratio."
-    )
+    "You are a precise financial data extraction engine. "
+    "Never fabricate, infer, or guess financial figures.\n\n"
+    "Return ONLY valid JSON with no other text before or after. "
+    "Do not wrap in markdown code blocks.\n\n"
+    "Schema:\n"
+    '{"analysis_text": "2-3 sentence summary", '
+    '"metrics": [{\n'
+    '  "title": "Metric name",\n'
+    '  "value": <raw number>,      # no $, no commas, no formatting\n'
+    '  "change": <number>,         # e.g. 15.8 for +15.8%\n'
+    '  "trend": "up" / "down",\n'
+    '  "chartType": "area" / "line" / "bar",\n'
+    '  "data": [{"value": <number>}, ...],  # 8 points\n'
+    '  "explain": {"title": "", "value": <number>, "meaning": "", '
+    '"formula": "", "benchmark": "", "interpretation": ""}\n'
+    "}]}\n\n"
+    "RULES:\n"
+    "1. ONLY extract metrics whose exact numeric value appears in the context above.\n"
+    "2. If not explicitly stated with a number, OMIT that metric entirely.\n"
+    "3. Do NOT calculate or derive metrics from other numbers — extract only.\n"
+    "4. Store 'value' as a raw number: 143800000000 for $143.8B, 34.5 for 34.5%.\n"
+    "5. For 'change', use the YoY change if stated; otherwise 0.\n"
+    "6. For 'data', generate 8 trend points consistent with the reported period.\n"
+    "7. For 'explain', write concise definitions based on standard finance.\n\n"
+    "Available metrics (only if present in context): "
+    "Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, "
+    "Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, "
+    "Net Profit Margin, Current Ratio, Return on Assets."
+)
     user = f"Company: {state.get('company_name', state['company_id'])}\n\n"
     if state["context"]:
         user += f"Context:\n{state['context']}\n\n"

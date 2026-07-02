@@ -11,10 +11,11 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-class TogetherEmbeddingFunction(EmbeddingFunction):
+class HFEmbeddingFunction(EmbeddingFunction):
     def __init__(self):
-        self._api_key = settings.together_api_key
-        self._model = settings.together_embedding_model
+        self._api_key = settings.hf_api_key
+        self._model = settings.hf_embedding_model
+        self._url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self._model}"
 
     def __call__(self, input):
         texts = input if isinstance(input, list) else [input]
@@ -22,20 +23,17 @@ class TogetherEmbeddingFunction(EmbeddingFunction):
         for i in range(0, len(texts), 20):
             batch = texts[i:i + 20]
             resp = httpx.post(
-                "https://api.together.xyz/v1/embeddings",
+                self._url,
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": self._model,
-                    "input": batch,
-                },
-                timeout=30,
+                json={"inputs": batch},
+                timeout=60,
             )
             resp.raise_for_status()
             data = resp.json()
-            all_embeddings.extend([e["embedding"] for e in data["data"]])
+            all_embeddings.extend(data)
         return all_embeddings
 
 
@@ -44,7 +42,7 @@ _ef = None
 def _get_ef():
     global _ef
     if _ef is None:
-        _ef = TogetherEmbeddingFunction()
+        _ef = HFEmbeddingFunction()
     return _ef
 
 

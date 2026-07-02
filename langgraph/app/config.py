@@ -15,8 +15,6 @@ class Settings(BaseSettings):
     chunk_overlap: int = 200
     groq_api_key: str = ""
     groq_llm_model: str = "llama-3.1-8b-instant"
-    hf_api_key: str = ""
-    hf_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

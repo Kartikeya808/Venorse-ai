@@ -1,0 +1,82 @@
+const agentService = require("../services/agent.service");
+const httpClient = require("../services/http-client.service");
+
+const financialAnalysis = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+    if (!companyId) {
+      return res.status(400).json({ message: "companyId is required" });
+    }
+    const job = await agentService.dispatchFinancialAnalysis(req.user.userId, companyId);
+    res.status(201).json(job);
+  } catch (err) {
+    const status = err.statusCode || 500;
+    res.status(status).json({ message: err.message });
+  }
+};
+
+const financialMetrics = async (req, res) => {
+  try {
+    const { companyId } = req.body;
+    if (!companyId) {
+      return res.status(400).json({ message: "companyId is required" });
+    }
+    const result = await httpClient.processFinancialMetrics(companyId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const compare = async (req, res) => {
+  try {
+    const { companyIds } = req.body;
+    const job = await agentService.dispatchComparison(req.user.userId, companyIds);
+    res.status(201).json(job);
+  } catch (err) {
+    const status = err.statusCode || 500;
+    res.status(status).json({ message: err.message });
+  }
+};
+
+const researchMemo = async (req, res) => {
+  try {
+    const { companyId, options } = req.body;
+    if (!companyId) {
+      return res.status(400).json({ message: "companyId is required" });
+    }
+    const job = await agentService.dispatchResearchMemo(req.user.userId, companyId, options);
+    res.status(201).json(job);
+  } catch (err) {
+    const status = err.statusCode || 500;
+    res.status(status).json({ message: err.message });
+  }
+};
+
+const generateMemoSync = async (req, res) => {
+  try {
+    const { companyId, options } = req.body;
+    if (!companyId) {
+      return res.status(400).json({ message: "companyId is required" });
+    }
+    const result = await httpClient.generateResearchMemo(companyId, options);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const chatMessage = async (req, res) => {
+  try {
+    const { message, history, companyId } = req.body;
+    if (!message) {
+      return res.status(400).json({ message: "message is required" });
+    }
+    const result = await httpClient.sendChatMessage(message, history || [], companyId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { financialAnalysis, financialMetrics, compare, researchMemo, generateMemoSync, chatMessage };

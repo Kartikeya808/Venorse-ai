@@ -1,0 +1,11 @@
+.DS_Store
+*.log
+.env
+.env.local
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.next/
+*.tsbuildinfo
+next-env.d.ts

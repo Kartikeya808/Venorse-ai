@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" shape-rendering="geometricPrecision">
+  <defs>
+
+    <!-- Primary dark background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A0D12"/>
+      <stop offset="100%" stop-color="#111620"/>
+    </linearGradient>
+
+    <!-- Blue accent gradient for inner chevron -->
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2A7FFF"/>
+      <stop offset="100%" stop-color="#0F5FD4"/>
+    </linearGradient>
+
+    <!-- Subtle glow filter for blue accent -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Crisp clip for outer shape -->
+    <clipPath id="outerClip">
+      <rect width="400" height="400" rx="72"/>
+    </clipPath>
+
+  </defs>
+
+  <!-- ─── Background tile ─── -->
+  <rect width="400" height="400" rx="72" fill="url(#bgGrad)"/>
+
+  <!-- ─── Subtle grid / analytical texture ─── -->
+  <g clip-path="url(#outerClip)" opacity="0.035">
+    <!-- Horizontal grid lines -->
+    <line x1="0" y1="100" x2="400" y2="100" stroke="#FFFFFF" stroke-width="0.8"/>
+    <line x1="0" y1="200" x2="400" y2="200" stroke="#FFFFFF" stroke-width="0.8"/>
+    <line x1="0" y1="300" x2="400" y2="300" stroke="#FFFFFF" stroke-width="0.8"/>
+    <!-- Vertical grid lines -->
+    <line x1="100" y1="0" x2="100" y2="400" stroke="#FFFFFF" stroke-width="0.8"/>
+    <line x1="200" y1="0" x2="200" y2="400" stroke="#FFFFFF" stroke-width="0.8"/>
+    <line x1="300" y1="0" x2="300" y2="400" stroke="#FFFFFF" stroke-width="0.8"/>
+  </g>
+
+  <!--
+    ═══════════════════════════════════════════════════
+    VENORSE  V  —  Geometric construction
+    ───────────────────────────────────────────────────
+    Strategy: Two bold strokes descend from top-left
+    and top-right meeting at a precise apex. A thinner
+    inner chevron in blue accent sits within, created
+    via negative-space offset — giving depth without
+    additional fill shapes. The result reads clearly
+    at 16 × 16 favicon size as a pure angled form.
+    ═══════════════════════════════════════════════════
+
+    Coordinate system (400 × 400):
+      Top-left arm start:   (88, 86)
+      Top-right arm start:  (312, 86)
+      Apex (bottom center): (200, 298)
+      Stroke width outer:   48px
+      Stroke width inner:   14px (blue)
+
+    The V is drawn as a single polyline, then the
+    inner accent chevron as a parallel offset polyline.
+  -->
+
+  <!-- ── Outer V: white/light stroke, butt caps, miter join ── -->
+  <polyline
+    points="88,86 200,298 312,86"
+    fill="none"
+    stroke="#E8EDF5"
+    stroke-width="46"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    stroke-miterlimit="10"
+  />
+
+  <!--
+    Inner V: offset inward ~16px from each outer edge.
+    Because the outer stroke is 46 wide, the inner path
+    sits 23px inward on each arm, giving us the negative
+    space gap. We close that gap at the apex precisely.
+
+    Inward offset geometry (approx for 46px stroke):
+      Left arm vector: (312-88, 298-86) normalised → offset perpendicular inward
+      Right arm symmetric
+
+    Computed inner V waypoints:
+      Left top:    (116, 86)   [shifted right 28px]
+      Apex:        (200, 266)  [apex raised 32px to expose gap]
+      Right top:   (284, 86)   [shifted left 28px]
+  -->
+
+  <!-- Negative-space gap: redraw background colour wedge to cut inner V shape -->
+  <polyline
+    points="116,86 200,266 284,86"
+    fill="none"
+    stroke="url(#bgGrad)"
+    stroke-width="28"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    stroke-miterlimit="10"
+  />
+
+  <!-- ── Blue accent inner chevron — sits in the slit of the V ── -->
+  <!-- Positioned centrally within the negative-space channel -->
+  <polyline
+    points="131,86 200,252 269,86"
+    fill="none"
+    stroke="url(#accentGrad)"
+    stroke-width="10"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    stroke-miterlimit="10"
+    filter="url(#glow)"
+    opacity="0.95"
+  />
+
+  <!--
+    ── Top horizontal rule: analytical / data precision signal ──
+    A razor-thin line spanning the top of the V's arms,
+    connecting both start points. Adds rigor and frames the mark.
+  -->
+  <line
+    x1="70" y1="86"
+    x2="330" y2="86"
+    stroke="#E8EDF5"
+    stroke-width="3"
+    stroke-linecap="square"
+    opacity="0.55"
+  />
+
+  <!--
+    ── Corner registration marks ──
+    Four micro L-brackets at each corner — analytical / precision instrument aesthetic.
+    Disappear at favicon scale (below 48px), present at sidebar scale (24px+).
+  -->
+  <!-- Top-left bracket -->
+  <path d="M 38,38 L 38,62 M 38,38 L 62,38"
+        stroke="#2A7FFF" stroke-width="2.5" stroke-linecap="square" opacity="0.45"/>
+  <!-- Top-right bracket -->
+  <path d="M 362,38 L 362,62 M 362,38 L 338,38"
+        stroke="#2A7FFF" stroke-width="2.5" stroke-linecap="square" opacity="0.45"/>
+  <!-- Bottom-left bracket -->
+  <path d="M 38,362 L 38,338 M 38,362 L 62,362"
+        stroke="#2A7FFF" stroke-width="2.5" stroke-linecap="square" opacity="0.45"/>
+  <!-- Bottom-right bracket -->
+  <path d="M 362,362 L 362,338 M 362,362 L 338,362"
+        stroke="#2A7FFF" stroke-width="2.5" stroke-linecap="square" opacity="0.45"/>
+
+  <!--
+    ── Apex dot: precision anchor point ──
+    A 5px filled circle at the exact V apex, blue accent.
+    Reinforces the analytical / data-point visual language.
+  -->
+  <circle cx="200" cy="298" r="5" fill="#2A7FFF" opacity="0.8"/>
+
+</svg>

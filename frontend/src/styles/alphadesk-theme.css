@@ -1,0 +1,57 @@
+/* AlphaDesk Custom Theme - Premium Financial Intelligence Workspace */
+/* Dark is default; .alpha-light overrides */
+
+:root, .dark {
+  --ad-bg: #08111F;
+  --ad-surface: #0E1A2B;
+  --ad-card: #111E30;
+  --ad-card-deep: #08111F;
+  --ad-text-primary: #F5F7FA;
+  --ad-text-secondary: #9CA8B8;
+  --ad-text-muted: #6B7A8F;
+  --ad-border: rgba(255, 255, 255, 0.08);
+  --ad-border-subtle: rgba(255, 255, 255, 0.04);
+  --ad-border-accent: rgba(79, 142, 247, 0.3);
+  --ad-accent: #4F8EF7;
+  --ad-accent-dim: rgba(79, 142, 247, 0.08);
+  --ad-accent-mid: rgba(79, 142, 247, 0.15);
+  --ad-accent-glow: rgba(79, 142, 247, 0.25);
+  --ad-success: #3FB68B;
+  --ad-success-dim: rgba(63, 182, 139, 0.1);
+  --ad-warning: #D6A14A;
+  --ad-warning-dim: rgba(214, 161, 74, 0.1);
+  --ad-error: #E57373;
+  --ad-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --ad-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --ad-progress-fill: #5B9BD5;
+}
+
+body {
+  background: var(--ad-bg);
+  color: var(--ad-text-primary);
+}
+
+.alpha-light {
+  --ad-bg: #F0F4F8;
+  --ad-surface: #FFFFFF;
+  --ad-card: #F8FAFC;
+  --ad-card-deep: #EDF2F7;
+  --ad-text-primary: #111827;
+  --ad-text-secondary: #64748B;
+  --ad-text-muted: #94A3B8;
+  --ad-border: rgba(0, 0, 0, 0.08);
+  --ad-border-subtle: rgba(0, 0, 0, 0.04);
+  --ad-border-accent: rgba(79, 142, 247, 0.35);
+  --ad-accent: #4F8EF7;
+  --ad-accent-dim: rgba(79, 142, 247, 0.08);
+  --ad-accent-mid: rgba(79, 142, 247, 0.12);
+  --ad-accent-glow: rgba(79, 142, 247, 0.15);
+  --ad-success: #059669;
+  --ad-success-dim: rgba(5, 150, 105, 0.08);
+  --ad-warning: #D97706;
+  --ad-warning-dim: rgba(217, 119, 6, 0.08);
+  --ad-error: #DC2626;
+  --ad-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --ad-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --ad-progress-fill: #4CAF50;
+}

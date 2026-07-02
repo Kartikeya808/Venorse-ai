@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/generate-memo", response_model=GenerateMemoResponse)
 async def generate_memo(req: GenerateMemoRequest):
-    result = await run_memo_agent(req.companyId, options=req.options)
+    result = await run_memo_agent(req.companyId, req.companyName, options=req.options)
     return GenerateMemoResponse(
         memo_result=result.get("memo_result", ""),
     )

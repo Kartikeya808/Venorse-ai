@@ -35,9 +35,9 @@ const processDocument = async (documentId, filePath) => {
   return data;
 };
 
-const processFinancialAnalysis = async (companyId) => {
+const processFinancialAnalysis = async (companyId, companyName) => {
   const { data } = await withRetry(() =>
-    agentClient.post("/api/financial-analysis", { companyId })
+    agentClient.post("/api/financial-analysis", { companyId, companyName })
   );
   return data;
 };
@@ -49,9 +49,9 @@ const processComparison = async (companyIds) => {
   return data;
 };
 
-const generateResearchMemo = async (companyId, options = {}) => {
+const generateResearchMemo = async (companyId, options = {}, companyName) => {
   const { data } = await withRetry(() =>
-    agentClient.post("/api/generate-memo", { companyId, options })
+    agentClient.post("/api/generate-memo", { companyId, companyName, options })
   );
   return data;
 };

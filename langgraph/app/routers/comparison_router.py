@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/compare", response_model=ComparisonResponse)
 async def compare(req: ComparisonRequest):
-    result = await run_comparison_agent(req.companyIds)
+    result = await run_comparison_agent(req.companyIds, req.companyNames)
     return ComparisonResponse(
         comparison_result=result.get("comparison_result", ""),
     )

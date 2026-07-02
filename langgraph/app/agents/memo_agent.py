@@ -20,7 +20,7 @@ class MemoState(TypedDict):
 def retrieve_node(state: MemoState) -> dict:
     try:
         name = state.get("company_name", state["company_id"])
-        docs = search(f"{name} business overview financials strategy risks", top_k=15, filters={"doc_id": state["company_id"]})
+        docs = search(f"{name} business overview financials strategy risks", top_k=15)
         ctx = format_context(docs, max_chars=10000)
         return {"context": ctx, "error": ""}
     except Exception as e:

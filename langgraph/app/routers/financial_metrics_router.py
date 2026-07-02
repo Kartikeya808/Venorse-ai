@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/financial-metrics", response_model=FinancialMetricsResponse)
 async def financial_metrics(req: FinancialMetricsRequest):
-    result = await run_financial_metrics_agent(req.companyId)
+    result = await run_financial_metrics_agent(req.companyId, req.companyName)
     return FinancialMetricsResponse(
         company_id=req.companyId,
         metrics=result.get("metrics", []),

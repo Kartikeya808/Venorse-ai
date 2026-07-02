@@ -15,6 +15,7 @@ class ProcessDocumentResponse(BaseModel):
 
 class FinancialAnalysisRequest(BaseModel):
     companyId: str
+    companyName: str = ""
 
 
 class FinancialAnalysisResponse(BaseModel):
@@ -24,6 +25,7 @@ class FinancialAnalysisResponse(BaseModel):
 
 class ComparisonRequest(BaseModel):
     companyIds: list[str]
+    companyNames: list[str] | None = None
 
 
 class ComparisonResponse(BaseModel):
@@ -32,6 +34,7 @@ class ComparisonResponse(BaseModel):
 
 class GenerateMemoRequest(BaseModel):
     companyId: str
+    companyName: str = ""
     options: dict = {}
 
 
@@ -41,6 +44,7 @@ class GenerateMemoResponse(BaseModel):
 
 class FinancialMetricsRequest(BaseModel):
     companyId: str
+    companyName: str = ""
 
 
 class MetricExplain(BaseModel):

@@ -19,8 +19,7 @@ class ChatState(TypedDict):
 
 def retrieve_node(state: ChatState) -> dict:
     try:
-        filters = {"doc_id": state["company_id"]} if state.get("company_id") else None
-        docs = search(state["message"], top_k=5, filters=filters)
+        docs = search(state["message"], top_k=5)
         ctx = format_context(docs, max_chars=4000)
         return {"context": ctx, "error": ""}
     except Exception as e:

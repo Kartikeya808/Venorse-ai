@@ -104,7 +104,8 @@ const dispatchFinancialAnalysis = async (userId, companyId) => {
     userId,
     "financial_analysis",
     httpClient.processFinancialAnalysis,
-    companyId
+    companyId,
+    company.name
   );
 };
 
@@ -143,7 +144,8 @@ const dispatchResearchMemo = async (userId, companyId, options = {}) => {
     "research_memo",
     httpClient.generateResearchMemo,
     companyId,
-    options
+    options,
+    company.name
   );
 
   await researchJobModel.findByIdAndUpdate(job._id, {

@@ -56,9 +56,9 @@ const generateResearchMemo = async (companyId, options = {}, companyName) => {
   return data;
 };
 
-const processFinancialMetrics = async (companyId) => {
+const processFinancialMetrics = async (companyId, companyName = "") => {
   const { data } = await withRetry(() =>
-    agentClient.post("/api/financial-metrics", { companyId })
+    agentClient.post("/api/financial-metrics", { companyId, companyName })
   );
   return data;
 };

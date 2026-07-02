@@ -17,11 +17,11 @@ const financialAnalysis = async (req, res) => {
 
 const financialMetrics = async (req, res) => {
   try {
-    const { companyId } = req.body;
+    const { companyId, companyName } = req.body;
     if (!companyId) {
       return res.status(400).json({ message: "companyId is required" });
     }
-    const result = await httpClient.processFinancialMetrics(companyId);
+    const result = await httpClient.processFinancialMetrics(companyId, companyName || "");
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });

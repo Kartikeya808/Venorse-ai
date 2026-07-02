@@ -7,8 +7,6 @@ import httpx
 import chromadb
 from chromadb import EmbeddingFunction
 from chromadb.config import Settings as ChromaSettings
-from sklearn.feature_extraction.text import HashingVectorizer
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -43,41 +41,19 @@ class JinaEmbeddingFunction(EmbeddingFunction):
         return [e["embedding"] for e in resp.json()["data"]]
 
 
-# ── Lightweight embedding function (no ML model, runs on 512MB) ──
-
-class TfidfEmbeddingFunction(EmbeddingFunction):
-    """ChromaDB embedding function using HashingVectorizer + L2 norm.
-
-    Produces 512-dim unit vectors without loading any ML model.
-    Compatible with ChromaDB's cosine HNSW index.
-    ~5MB memory, no disk download, no API calls.
-    Upgrade path: swap to ONNXMiniLM_L6_V2 on a paid Render tier.
-    """
-
-    def __init__(self):
-        self._vectorizer = HashingVectorizer(
-            n_features=512,
-            norm="l2",
-            alternate_sign=False,
-        )
-
-    def __call__(self, input):
-        texts = input if isinstance(input, list) else [input]
-        return self._vectorizer.transform(texts).toarray().tolist()
-
-
 _ef = None
 
 
 def _get_ef():
     global _ef
     if _ef is None:
-        if settings.jina_api_key:
-            logger.info("Initializing JinaEmbeddingFunction (1024-dim, hosted API)")
-            _ef = JinaEmbeddingFunction(api_key=settings.jina_api_key)
-        else:
-            logger.info("Initializing TfidfEmbeddingFunction (512-dim, no model download)")
-            _ef = TfidfEmbeddingFunction()
+        if not settings.jina_api_key:
+            raise ValueError(
+                "JINA_API_KEY is required but not set. "
+                "Add JINA_API_KEY=your-key to langgraph/.env"
+            )
+        logger.info("Initializing JinaEmbeddingFunction (1024-dim, hosted API)")
+        _ef = JinaEmbeddingFunction(api_key=settings.jina_api_key)
     return _ef
 
 

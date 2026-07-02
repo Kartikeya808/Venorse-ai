@@ -68,8 +68,14 @@ class FinancialMetricsState(TypedDict):
 
 def retrieve_node(state: FinancialMetricsState) -> dict:
     try:
-        docs = search(f"{state.get('company_name', state['company_id'])} {state.get('company_name', state['company_id'])} financial analysis revenue income balance sheet cash flow margins growth", top_k=10)
-        context = format_context(docs)
+        name = state.get("company_name") or state.get("company_id", "")
+        doc_id = state.get("company_id", "")
+        docs = search(
+            f"{name} financial analysis revenue income balance sheet cash flow margins growth",
+            top_k=30,
+            filters={"doc_id": doc_id} if doc_id else None,
+        )
+        context = format_context(docs, max_chars=15000)
         return {"context": context, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)

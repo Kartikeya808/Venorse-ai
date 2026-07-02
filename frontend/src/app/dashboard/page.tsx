@@ -80,7 +80,7 @@ export default function DashboardPage() {
   const fetchMetrics = async () => {
     setMetricsLoading(true);
     try {
-      const res = await api.post('/agent/financial-metrics', { companyId: selectedDocId });
+      const res = await api.post('/agent/financial-metrics', { companyId: selectedDocId, companyName: selectedDoc?.companyName || '' });
       const rawMetrics = res.data?.metrics || [];
       const mapped = rawMetrics.map((m: any) => ({
         title: m.title,

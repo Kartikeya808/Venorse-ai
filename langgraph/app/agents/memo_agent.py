@@ -19,9 +19,14 @@ class MemoState(TypedDict):
 
 def retrieve_node(state: MemoState) -> dict:
     try:
-        name = state.get("company_name", state["company_id"])
-        docs = search(f"{name} {name} business overview revenue financials strategy risks competition market", top_k=5)
-        ctx = format_context(docs, max_chars=4000)
+        name = state.get("company_name") or state.get("company_id", "")
+        doc_id = state.get("company_id", "")
+        docs = search(
+            f"{name} business overview revenue financials strategy risks competition market",
+            top_k=30,
+            filters={"doc_id": doc_id} if doc_id else None,
+        )
+        ctx = format_context(docs, max_chars=15000)
         return {"context": ctx, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)

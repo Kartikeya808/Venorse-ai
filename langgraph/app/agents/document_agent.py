@@ -45,14 +45,18 @@ def extract_node(state: DocumentState) -> dict:
 
 
 def chunk_node(state: DocumentState) -> dict:
-    chunks = []
-    chunk_metas = []
-    for chunk_text_val, meta in chunk_text(state["raw_text"]):
-        chunks.append(chunk_text_val)
-        chunk_metas.append({"doc_id": state["document_id"], **meta})
+    try:
+        chunks = []
+        chunk_metas = []
+        for chunk_text_val, meta in chunk_text(state["raw_text"]):
+            chunks.append(chunk_text_val)
+            chunk_metas.append({"doc_id": state["document_id"], **meta})
 
-    add_document_chunks(chunks, chunk_metas, state["document_id"])
-    return {"chunks": chunks}
+        add_document_chunks(chunks, chunk_metas, state["document_id"])
+        return {"chunks": chunks}
+    except Exception as e:
+        logger.error("Chunking failed: %s", e, exc_info=True)
+        return {"error": str(e)}
 
 
 def summarize_node(state: DocumentState) -> dict:

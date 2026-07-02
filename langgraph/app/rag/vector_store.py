@@ -50,10 +50,14 @@ _fastembed_model = None
 
 def _fastembed_texts(texts: list[str]) -> list[list[float]]:
     global _fastembed_model
-    if _fastembed_model is None:
-        from fastembed import TextEmbedding
-        _fastembed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-    return list(_fastembed_model.embed(texts))
+    try:
+        if _fastembed_model is None:
+            from fastembed import TextEmbedding
+            _fastembed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        return list(_fastembed_model.embed(texts))
+    except Exception as e:
+        logger.error("FastEmbed failed: %s", e, exc_info=True)
+        raise
 
 
 def add_document_chunks(chunks: list[str], metadata: list[dict], doc_id: str):

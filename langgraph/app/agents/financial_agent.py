@@ -22,10 +22,10 @@ def retrieve_node(state: FinancialState) -> dict:
         doc_id = state.get("company_id", "")
         docs = search(
             f"{name} financial analysis revenue income balance sheet cash flow margins growth",
-            top_k=30,
+            top_k=15,
             filters={"doc_id": doc_id} if doc_id else None,
         )
-        context = format_context(docs, max_chars=15000)
+        context = format_context(docs, max_chars=8000)
         return {"context": context, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)

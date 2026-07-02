@@ -24,10 +24,10 @@ def retrieve_node(state: ComparisonState) -> dict:
             name = names[i] if i < len(names) else cid
             docs = search(
                 f"{name} financial data revenue income",
-                top_k=20,
+                top_k=10,
                 filters={"doc_id": cid} if cid else None,
             )
-            ctx = format_context(docs, max_chars=6000)
+            ctx = format_context(docs, max_chars=4000)
             contexts.append(f"=== {name} ===\n{ctx}")
         except Exception as e:
             logger.warning("Retrieval failed for %s: %s", cid, e)

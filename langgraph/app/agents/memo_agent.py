@@ -23,10 +23,10 @@ def retrieve_node(state: MemoState) -> dict:
         doc_id = state.get("company_id", "")
         docs = search(
             f"{name} business overview revenue financials strategy risks competition market",
-            top_k=30,
+            top_k=15,
             filters={"doc_id": doc_id} if doc_id else None,
         )
-        ctx = format_context(docs, max_chars=15000)
+        ctx = format_context(docs, max_chars=8000)
         return {"context": ctx, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)

@@ -81,14 +81,14 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
         seen = set()
         combined = []
         for q in queries:
-            docs = search(q, top_k=10, filters=filters)
+            docs = search(q, top_k=5, filters=filters)
             for d in docs:
                 sig = (d["content"][:100], d["metadata"].get("chunk"))
                 if sig not in seen:
                     seen.add(sig)
                     combined.append(d)
 
-        context = format_context(combined, max_chars=15000)
+        context = format_context(combined, max_chars=8000)
         return {"context": context, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)

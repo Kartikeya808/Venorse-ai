@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
+import httpx
 from chromadb import EmbeddingFunction
 from chromadb.config import Settings as ChromaSettings
 from app.config import settings
@@ -10,21 +11,31 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-class GroqEmbeddingFunction(EmbeddingFunction):
+class TogetherEmbeddingFunction(EmbeddingFunction):
     def __init__(self):
-        from groq import Groq
-        self._client = Groq(api_key=settings.groq_api_key)
+        self._api_key = settings.together_api_key
+        self._model = settings.together_embedding_model
 
     def __call__(self, input):
         texts = input if isinstance(input, list) else [input]
         all_embeddings = []
         for i in range(0, len(texts), 20):
             batch = texts[i:i + 20]
-            resp = self._client.embeddings.create(
-                model="nomic-embed-text-v1.5",
-                input=batch,
+            resp = httpx.post(
+                "https://api.together.xyz/v1/embeddings",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self._model,
+                    "input": batch,
+                },
+                timeout=30,
             )
-            all_embeddings.extend([e.embedding for e in resp.data])
+            resp.raise_for_status()
+            data = resp.json()
+            all_embeddings.extend([e["embedding"] for e in data["data"]])
         return all_embeddings
 
 
@@ -33,7 +44,7 @@ _ef = None
 def _get_ef():
     global _ef
     if _ef is None:
-        _ef = GroqEmbeddingFunction()
+        _ef = TogetherEmbeddingFunction()
     return _ef
 
 

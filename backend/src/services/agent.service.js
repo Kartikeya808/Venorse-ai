@@ -40,6 +40,7 @@ const _fireAgent = async (jobId, agentFn, agentArgs) => {
       await handleJobCompletion(jobId, job.type, result);
     }
   } catch (err) {
+    console.error(`[AGENT] Job ${jobId} failed:`, err.message, err.stack?.split("\n").slice(0, 3).join(" "));
     await researchJobModel.findByIdAndUpdate(jobId, {
       status: "failed",
       error: err.message,

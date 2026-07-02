@@ -3,11 +3,19 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
-import httpx
 from chromadb.config import Settings as ChromaSettings
+from chromadb.utils import embedding_functions
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+_default_ef = None
+
+def _get_ef():
+    global _default_ef
+    if _default_ef is None:
+        _default_ef = embedding_functions.DefaultEmbeddingFunction()
+    return _default_ef
 
 
 def get_chroma_client() -> chromadb.ClientAPI:
@@ -25,52 +33,38 @@ def get_or_create_collection(client: Optional[chromadb.ClientAPI] = None):
     return client.get_or_create_collection(
         name=settings.chroma_collection,
         metadata={"hnsw:space": "cosine"},
+        embedding_function=_get_ef(),
     )
-
-
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    url = f"{settings.ollama_base_url}/api/embeddings"
-    try:
-        results = []
-        for text in texts:
-            resp = httpx.post(
-                url,
-                json={"model": settings.embedding_model, "prompt": text},
-                timeout=30,
-            )
-            resp.raise_for_status()
-            results.append(resp.json()["embedding"])
-        return results
-    except Exception as e:
-        logger.warning("Ollama embedding failed (%s), using fastembed", e)
-        return _fastembed_texts(texts)
-
-
-_fastembed_model = None
-
-def _fastembed_texts(texts: list[str]) -> list[list[float]]:
-    global _fastembed_model
-    try:
-        if _fastembed_model is None:
-            from fastembed import TextEmbedding
-            _fastembed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-        return list(_fastembed_model.embed(texts))
-    except Exception as e:
-        logger.error("FastEmbed failed: %s", e, exc_info=True)
-        raise
 
 
 def add_document_chunks(chunks: list[str], metadata: list[dict], doc_id: str):
     collection = get_or_create_collection()
     ids = [f"{doc_id}_{i}" for i in range(len(chunks))]
-    embeddings = embed_texts(chunks)
     collection.add(
         ids=ids,
         documents=chunks,
         metadatas=metadata,
-        embeddings=embeddings,
     )
     logger.info("Stored %d chunks for document %s", len(chunks), doc_id)
+
+
+def search(query: str, top_k: int = 5, filters: Optional[dict] = None) -> list[dict]:
+    collection = get_or_create_collection()
+    where = filters or {}
+    results = collection.query(
+        query_texts=[query],
+        n_results=top_k,
+        where=where or None,
+    )
+    documents = []
+    if results["documents"] and results["documents"][0]:
+        for i, doc in enumerate(results["documents"][0]):
+            documents.append({
+                "content": doc,
+                "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
+                "score": results["distances"][0][i] if results["distances"] else 0,
+            })
+    return documents
 
 
 def delete_document_chunks(doc_id: str):

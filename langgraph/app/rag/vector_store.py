@@ -14,40 +14,33 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-# ── Gemini Embedding Function (hosted API, no local ML model) ──
+# ── Jina Embedding Function (hosted API, no local ML model) ──
 
-class GeminiEmbeddingFunction(EmbeddingFunction):
-    """ChromaDB embedding function using the Gemini Embedding API.
+class JinaEmbeddingFunction(EmbeddingFunction):
+    """ChromaDB embedding function using the Jina Embeddings API.
 
-    Calls gemini-embedding-001 via Google's batchEmbedContents endpoint.
-    Produces 768-dim vectors. Zero local memory for ML model.
-    Requires GEMINI_API_KEY set in environment.
+    Calls jina-embeddings-v3 via Jina's OpenAI-compatible /v1/embeddings.
+    Produces 1024-dim vectors. Zero local memory for ML model.
+    Requires JINA_API_KEY set in environment.
     """
 
-    def __init__(self, api_key: str, model: str = "gemini-embedding-001"):
+    def __init__(self, api_key: str, model: str = "jina-embeddings-v3"):
         self._api_key = api_key
-        self._model = f"models/{model}"
-        self._url = (
-            f"https://generativelanguage.googleapis.com/v1beta/"
-            f"{self._model}:batchEmbedContents"
-        )
+        self._model = model
 
     def __call__(self, input):
         texts = input if isinstance(input, list) else [input]
-        body = {
-            "requests": [
-                {"model": self._model, "content": {"parts": [{"text": t}]}}
-                for t in texts
-            ]
-        }
-        params = {"key": self._api_key}
-        resp = httpx.post(self._url, params=params, json=body, timeout=30)
-        if resp.status_code == 429:
-            logger.warning("Gemini rate limited (429), retrying after 2s")
-            time.sleep(2)
-            resp = httpx.post(self._url, params=params, json=body, timeout=30)
+        resp = httpx.post(
+            "https://api.jina.ai/v1/embeddings",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"model": self._model, "input": texts},
+            timeout=30,
+        )
         resp.raise_for_status()
-        return [e["values"] for e in resp.json()["embeddings"]]
+        return [e["embedding"] for e in resp.json()["data"]]
 
 
 # ── Lightweight embedding function (no ML model, runs on 512MB) ──
@@ -79,9 +72,9 @@ _ef = None
 def _get_ef():
     global _ef
     if _ef is None:
-        if settings.gemini_api_key:
-            logger.info("Initializing GeminiEmbeddingFunction (768-dim, hosted API)")
-            _ef = GeminiEmbeddingFunction(api_key=settings.gemini_api_key)
+        if settings.jina_api_key:
+            logger.info("Initializing JinaEmbeddingFunction (1024-dim, hosted API)")
+            _ef = JinaEmbeddingFunction(api_key=settings.jina_api_key)
         else:
             logger.info("Initializing TfidfEmbeddingFunction (512-dim, no model download)")
             _ef = TfidfEmbeddingFunction()

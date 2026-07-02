@@ -1,7 +1,9 @@
 import logging
+import time
 from pathlib import Path
 from typing import Optional
 
+import httpx
 import chromadb
 from chromadb import EmbeddingFunction
 from chromadb.config import Settings as ChromaSettings
@@ -10,6 +12,42 @@ from sklearn.feature_extraction.text import HashingVectorizer
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# ── Gemini Embedding Function (hosted API, no local ML model) ──
+
+class GeminiEmbeddingFunction(EmbeddingFunction):
+    """ChromaDB embedding function using the Gemini Embedding API.
+
+    Calls gemini-embedding-001 via Google's batchEmbedContents endpoint.
+    Produces 768-dim vectors. Zero local memory for ML model.
+    Requires GEMINI_API_KEY set in environment.
+    """
+
+    def __init__(self, api_key: str, model: str = "gemini-embedding-001"):
+        self._api_key = api_key
+        self._model = f"models/{model}"
+        self._url = (
+            f"https://generativelanguage.googleapis.com/v1beta/"
+            f"{self._model}:batchEmbedContents"
+        )
+
+    def __call__(self, input):
+        texts = input if isinstance(input, list) else [input]
+        body = {
+            "requests": [
+                {"model": self._model, "content": {"parts": [{"text": t}]}}
+                for t in texts
+            ]
+        }
+        params = {"key": self._api_key}
+        resp = httpx.post(self._url, params=params, json=body, timeout=30)
+        if resp.status_code == 429:
+            logger.warning("Gemini rate limited (429), retrying after 2s")
+            time.sleep(2)
+            resp = httpx.post(self._url, params=params, json=body, timeout=30)
+        resp.raise_for_status()
+        return [e["values"] for e in resp.json()["embeddings"]]
 
 
 # ── Lightweight embedding function (no ML model, runs on 512MB) ──
@@ -41,8 +79,12 @@ _ef = None
 def _get_ef():
     global _ef
     if _ef is None:
-        logger.info("Initializing TfidfEmbeddingFunction (512-dim, no model download)")
-        _ef = TfidfEmbeddingFunction()
+        if settings.gemini_api_key:
+            logger.info("Initializing GeminiEmbeddingFunction (768-dim, hosted API)")
+            _ef = GeminiEmbeddingFunction(api_key=settings.gemini_api_key)
+        else:
+            logger.info("Initializing TfidfEmbeddingFunction (512-dim, no model download)")
+            _ef = TfidfEmbeddingFunction()
     return _ef
 
 

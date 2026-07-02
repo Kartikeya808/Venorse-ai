@@ -70,12 +70,25 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
     try:
         name = state.get("company_name") or state.get("company_id", "")
         doc_id = state.get("company_id", "")
-        docs = search(
-            f"{name} financial analysis revenue income balance sheet cash flow margins growth",
-            top_k=30,
-            filters={"doc_id": doc_id} if doc_id else None,
-        )
-        context = format_context(docs, max_chars=15000)
+        filters = {"doc_id": doc_id} if doc_id else None
+
+        queries = [
+            f"{name} revenue net income gross margin operating income financial highlights",
+            f"{name} balance sheet assets liabilities debt equity cash",
+            f"{name} cash flow statement operating investing financing",
+            f"{name} income statement earnings per share EBITDA ratios",
+        ]
+        seen = set()
+        combined = []
+        for q in queries:
+            docs = search(q, top_k=10, filters=filters)
+            for d in docs:
+                sig = (d["content"][:100], d["metadata"].get("chunk"))
+                if sig not in seen:
+                    seen.add(sig)
+                    combined.append(d)
+
+        context = format_context(combined, max_chars=15000)
         return {"context": context, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)
@@ -85,7 +98,9 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 def analyze_node(state: FinancialMetricsState) -> dict:
     system = (
     "You are a precise financial data extraction engine. "
-    "Never fabricate, infer, or guess financial figures.\n\n"
+    "You have NO prior knowledge of any company. "
+    "Every number you output MUST be copied verbatim from the Context below. "
+    "If a number is not in the Context, you MUST omit the metric.\n\n"
     "Return ONLY valid JSON with no other text before or after. "
     "Do not wrap in markdown code blocks.\n\n"
     "Schema:\n"
@@ -93,32 +108,34 @@ def analyze_node(state: FinancialMetricsState) -> dict:
     '"metrics": [{\n'
     '  "title": "Metric name",\n'
     '  "value": <raw number>,      # no $, no commas, no formatting\n'
-    '  "change": <number>,         # e.g. 15.8 for +15.8%\n'
+    '  "change": <number>,         # YoY change if stated; otherwise 0\n'
     '  "trend": "up" / "down",\n'
     '  "chartType": "area" / "line" / "bar",\n'
-    '  "data": [{"value": <number>}, ...],  # 8 points\n'
+    '  "data": [],  # empty unless multiple time periods found in context\n'
     '  "explain": {"title": "", "value": <number>, "meaning": "", '
     '"formula": "", "benchmark": "", "interpretation": ""}\n'
     "}]}\n\n"
     "RULES:\n"
-    "1. ONLY extract metrics whose exact numeric value appears in the context above.\n"
-    "2. If not explicitly stated with a number, OMIT that metric entirely.\n"
-    "3. Do NOT calculate or derive metrics from other numbers — extract only.\n"
-    "4. Store 'value' as a raw number: 143800000000 for $143.8B, 34.5 for 34.5%.\n"
-    "5. For 'change', use the YoY change if stated; otherwise 0.\n"
-    "6. For 'data', generate 8 trend points consistent with the reported period.\n"
-    "7. For 'explain', write concise definitions based on standard finance.\n\n"
+    "1. ONLY extract metrics whose exact numeric value appears word-for-word in the Context above.\n"
+    "2. If the Context does not contain an explicit number for a metric, OMIT it entirely.\n"
+    "3. Do NOT calculate, derive, or infer any number — extract only.\n"
+    "4. Do NOT use your training data — pretend you have never heard of this company.\n"
+    "5. Store 'value' as a raw number: 143800000000 for $143.8B, 34.5 for 34.5%.\n"
+    "6. 'data' must be empty unless the Context contains explicit numbers for multiple periods.\n"
+    "7. For 'change', extract the stated YoY change; if none is stated, use 0.\n"
+    "8. For 'explain', use only the Context text; if the Context doesn't define it, leave fields blank.\n\n"
     "Available metrics (only if present in context): "
     "Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, "
     "Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, "
     "Net Profit Margin, Current Ratio, Return on Assets."
 )
-    user = f"Company: {state.get('company_name', state['company_id'])}\n\n"
+    name = state.get("company_name") or state.get("company_id", "")
+    user = f"Company: {name}\n\n"
     if state["context"]:
         user += f"Context:\n{state['context']}\n\n"
-    user += "Return JSON now."
+    user += f"IMPORTANT: Do NOT use any knowledge about {name} from your training. Only use numbers that appear in the Context above. Return JSON now."
 
-    result = call_llm(system, user, temperature=0.1, max_tokens=2000)
+    result = call_llm(system, user, temperature=0.1, max_tokens=4000)
 
     parsed = _parse_llm_json(result)
     if parsed is None:

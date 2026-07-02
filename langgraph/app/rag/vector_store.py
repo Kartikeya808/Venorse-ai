@@ -3,11 +3,37 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
+from chromadb import EmbeddingFunction
 from chromadb.config import Settings as ChromaSettings
-from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
+from sklearn.feature_extraction.text import HashingVectorizer
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# ── Lightweight embedding function (no ML model, runs on 512MB) ──
+
+class TfidfEmbeddingFunction(EmbeddingFunction):
+    """ChromaDB embedding function using HashingVectorizer + L2 norm.
+
+    Produces 512-dim unit vectors without loading any ML model.
+    Compatible with ChromaDB's cosine HNSW index.
+    ~5MB memory, no disk download, no API calls.
+    Upgrade path: swap to ONNXMiniLM_L6_V2 on a paid Render tier.
+    """
+
+    def __init__(self):
+        self._vectorizer = HashingVectorizer(
+            n_features=512,
+            norm="l2",
+            alternate_sign=False,
+        )
+
+    def __call__(self, input):
+        texts = input if isinstance(input, list) else [input]
+        return self._vectorizer.transform(texts).toarray().tolist()
+
 
 _ef = None
 
@@ -15,11 +41,12 @@ _ef = None
 def _get_ef():
     global _ef
     if _ef is None:
-        logger.info("Loading ONNX MiniLM-L6-V2 embedding model (first request may be slow)...")
-        _ef = ONNXMiniLM_L6_V2()
-        logger.info("Embedding model ready")
+        logger.info("Initializing TfidfEmbeddingFunction (512-dim, no model download)")
+        _ef = TfidfEmbeddingFunction()
     return _ef
 
+
+# ── ChromaDB persistence layer ──
 
 def get_chroma_client() -> chromadb.ClientAPI:
     persist_dir = Path(settings.chroma_persist_dir)
@@ -43,12 +70,23 @@ def get_or_create_collection(client: Optional[chromadb.ClientAPI] = None):
 def add_document_chunks(chunks: list[str], metadata: list[dict], doc_id: str):
     collection = get_or_create_collection()
     ids = [f"{doc_id}_{i}" for i in range(len(chunks))]
-    collection.add(
-        ids=ids,
-        documents=chunks,
-        metadatas=metadata,
-    )
-    logger.info("Stored %d chunks for document %s", len(chunks), doc_id)
+    try:
+        collection.add(
+            ids=ids,
+            documents=chunks,
+            metadatas=metadata,
+        )
+        logger.info("Stored %d chunks for document %s", len(chunks), doc_id)
+    except chromadb.errors.ChromaError as e:
+        if "dimensionality" in str(e).lower() or "dimension" in str(e).lower():
+            logger.warning("Dimension mismatch, recreating collection: %s", e)
+            client = get_chroma_client()
+            client.delete_collection(settings.chroma_collection)
+            collection = get_or_create_collection()
+            collection.add(ids=ids, documents=chunks, metadatas=metadata)
+            logger.info("Stored %d chunks after recreating collection", len(chunks))
+        else:
+            raise
 
 
 def search(query: str, top_k: int = 5, filters: Optional[dict] = None) -> list[dict]:

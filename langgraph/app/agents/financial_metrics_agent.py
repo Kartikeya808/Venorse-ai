@@ -120,7 +120,7 @@ def analyze_node(state: FinancialMetricsState) -> dict:
     user = f"Company: {name}\n\nContext:\n{ctx}\n\n"
     user += f"Return JSON for {name} using ONLY numbers from Context above. If no numbers match any metric, return {{\"analysis_text\":\"No metrics found\",\"metrics\":[]}}."
 
-    result = call_llm(system, user, temperature=0.1, max_tokens=3000)
+    result = call_llm(system, user, temperature=0.1, max_tokens=3000,model="llama-3.1-8b-instant")
 
     parsed = _parse_llm_json(result)
     if parsed is None:

@@ -96,39 +96,42 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
 
 def analyze_node(state: FinancialMetricsState) -> dict:
-    system = (
-    "You are a precise financial data extraction engine. "
-    "You have NO prior knowledge of any company. "
-    "Every number you output MUST be copied verbatim from the Context below. "
-    "If a number is not in the Context, you MUST omit the metric.\n\n"
-    "Return ONLY valid JSON with no other text before or after. "
-    "Do not wrap in markdown code blocks.\n\n"
-    "Schema:\n"
-    '{"analysis_text": "2-3 sentence summary", '
-    '"metrics": [{\n'
-    '  "title": "Metric name",\n'
-    '  "value": <raw number>,      # no $, no commas, no formatting\n'
-    '  "change": <number>,         # YoY change if stated; otherwise 0\n'
-    '  "trend": "up" / "down",\n'
-    '  "chartType": "area" / "line" / "bar",\n'
-    '  "data": [],  # empty unless multiple time periods found in context\n'
-    '  "explain": {"title": "", "value": <number>, "meaning": "", '
-    '"formula": "", "benchmark": "", "interpretation": ""}\n'
-    "}]}\n\n"
-    "RULES:\n"
-    "1. ONLY extract metrics whose exact numeric value appears word-for-word in the Context above.\n"
-    "2. If the Context does not contain an explicit number for a metric, OMIT it entirely.\n"
-    "3. Do NOT calculate, derive, or infer any number — extract only.\n"
-    "4. Do NOT use your training data — pretend you have never heard of this company.\n"
-    "5. Store 'value' as a raw number: 143800000000 for $143.8B, 34.5 for 34.5%.\n"
-    "6. 'data' must be empty unless the Context contains explicit numbers for multiple periods.\n"
-    "7. For 'change', extract the stated YoY change; if none is stated, use 0.\n"
-    "8. For 'explain', use only the Context text; if the Context doesn't define it, leave fields blank.\n\n"
-    "Available metrics (only if present in context): "
-    "Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, "
-    "Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, "
-    "Net Profit Margin, Current Ratio, Return on Assets."
+    system = ( """You are a financial data extraction engine. You have NO prior knowledge of any company. Use ONLY the Context below — never your training data.
+Return ONLY valid JSON. No markdown fences. No text before or after. No comments. No trailing commas.
+RULES:
+1. Extract a metric only if its exact numeric value appears word-for-word in the Context.
+2. If a metric has no explicit number in the Context, omit it entirely. Do not calculate, derive, estimate, or infer any number.
+3. "value" is a raw number, unit-normalized: 143800000000 for $143.8B, 34.5 for 34.5%. No $, no commas, no % signs.
+4. "change" is the exact stated YoY change (with sign, e.g. -2.1). If no YoY change is stated for that metric, use 0.
+5. "data" stays [] unless the Context gives explicit numbers for 2+ distinct time periods for that exact metric. If populated, use [{"period": "Q1 2024", "value": 100}, ...] with periods and values copied verbatim.
+6. Extract at most one entry per metric name.
+7. If the Context contains no extractable metrics, return exactly: {"analysis_text": "No financial metrics found in the provided context.", "metrics": []}
+Available metrics (only if explicitly present): Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, Net Profit Margin, Current Ratio, Return on Assets.
+Schema:
+{
+  "analysis_text": "2-3 sentence summary grounded only in Context",
+  "metrics": [
+    {
+      "title": "Metric name",
+      "value": 0,
+      "change": 0,
+      "data": [],
+      "explain": {
+        "meaning": "",
+        "formula": "",
+        "benchmark": ""
+      }
+    }
+  ]
+}
+--- EXAMPLE ---
+Context: "Q3 revenue was $45.2 billion, up 8% year-over-year. Gross margin held steady at 62.1%. Free cash flow was not disclosed this quarter."
+Output:
+{"analysis_text": "Revenue grew 8% YoY to $45.2B, with gross margin stable at 62.1%. Free cash flow was not disclosed.", "metrics": [{"title": "Revenue", "value": 45200000000, "change": 8, "data": [], "explain": {"meaning": "", "formula": "", "benchmark": ""}}, {"title": "Gross Margin", "value": 62.1, "change": 0, "data": [], "explain": {"meaning": "", "formula": "", "benchmark": ""}}]}
+--- END EXAMPLE ---
+Now extract from the Context above and return only the JSON."""  
 )
+   
     name = state.get("company_name") or state.get("company_id", "")
     user = f"Company: {name}\n\n"
     if state["context"]:

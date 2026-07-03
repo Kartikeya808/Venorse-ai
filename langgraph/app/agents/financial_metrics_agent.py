@@ -109,16 +109,16 @@ def analyze_node(state: FinancialMetricsState) -> dict:
         "Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, Net Profit Margin, "
         "Current Ratio, Return on Assets.\n"
         "Schema: {\"analysis_text\":\"summary\",\"metrics\":["
-        "{\"title\":\"\",\"value\":0,\"change\":0,\"data\":[],"
-        "\"explain\":{\"meaning\":\"\",\"formula\":\"\",\"benchmark\":\"\"}}]}"
+        "{\"title\":\"\",\"value\":0,\"change\":0,\"trend\":\"up\",\"chartType\":\"area\",\"data\":[{\"value\":0}],"
+        "\"explain\":{\"meaning\":\"\",\"formula\":\"\",\"benchmark\":\"\",\"interpretation\":\"\"}}]}"
     )
 
     name = state.get("company_name") or state.get("company_id", "")
     ctx = state.get("context", "")
-    user = f"Company: {name}\n\n"
-    if ctx:
-        user += f"Context:\n{ctx}\n\n"
-    user += f"Return JSON for {name} using ONLY numbers from Context above."
+    if not ctx.strip():
+        return {"metrics": [], "analysis_text": "No financial data found for this document."}
+    user = f"Company: {name}\n\nContext:\n{ctx}\n\n"
+    user += f"Return JSON for {name} using ONLY numbers from Context above. If no numbers match any metric, return {{\"analysis_text\":\"No metrics found\",\"metrics\":[]}}."
 
     result = call_llm(system, user, temperature=0.1, max_tokens=3000)
 

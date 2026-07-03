@@ -73,22 +73,21 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
         filters = {"doc_id": doc_id} if doc_id else None
 
         queries = [
-            f"{name} revenue net income gross margin operating income financial highlights",
-            f"{name} balance sheet assets liabilities debt equity cash",
-            f"{name} cash flow statement operating investing financing",
-            f"{name} income statement earnings per share EBITDA ratios",
+            f"{name} revenue net income gross margin operating income",
+            f"{name} balance sheet assets debt equity cash",
+            f"{name} cash flow operating free cash flow",
         ]
         seen = set()
         combined = []
         for q in queries:
-            docs = search(q, top_k=5, filters=filters)
+            docs = search(q, top_k=3, filters=filters)
             for d in docs:
                 sig = (d["content"][:100], d["metadata"].get("chunk"))
                 if sig not in seen:
                     seen.add(sig)
                     combined.append(d)
 
-        context = format_context(combined, max_chars=8000)
+        context = format_context(combined, max_chars=4000)
         return {"context": context, "error": ""}
     except Exception as e:
         logger.warning("Retrieval failed (%s), proceeding without context", e)
@@ -96,31 +95,32 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
 
 def analyze_node(state: FinancialMetricsState) -> dict:
-    system = ( """Extract financial metrics from Context. Use ONLY numbers written verbatim in Context — never prior knowledge, never calculations.
-CONTEXT:
-{context}
-Output ONLY valid JSON, no markdown, no comments, no extra text.
-RULES:
-- Include a metric only if its exact number appears in Context. Omit others.
-- value: raw number, no $/,/% (e.g. 143800000000 for $143.8B, 34.5 for 34.5%)
-- change: stated YoY % if given, else 0
-- data: [] unless Context has 2+ periods for that metric, then [{"period":"","value":0}]
-- Max 1 entry per metric
-- No metrics found → {"analysis_text":"No financial metrics found in the provided context.","metrics":[]}
-Metrics to look for: Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, Net Profit Margin, Current Ratio, Return on Assets.
-Schema: {"analysis_text":"2-3 sentence summary","metrics":[{"title":"","value":0,"change":0,"data":[],"explain":{"meaning":"","formula":"","benchmark":""}}]}
-Example — Context: "Revenue $45.2B, up 8% YoY. Gross margin 62.1%."
-Output: {"analysis_text":"Revenue grew 8% YoY to $45.2B; gross margin steady at 62.1%.","metrics":[{"title":"Revenue","value":45200000000,"change":8,"data":[],"explain":{"meaning":"","formula":"","benchmark":""}},{"title":"Gross Margin","value":62.1,"change":0,"data":[],"explain":{"meaning":"","formula":"","benchmark":""}}]}
-"""
-)
-   
-    name = state.get("company_name") or state.get("company_id", "")
-    user = f"Company: {name}\n\n"
-    if state["context"]:
-        user += f"Context:\n{state['context']}\n\n"
-    user += f"IMPORTANT: Do NOT use any knowledge about {name} from your training. Only use numbers that appear in the Context above. Return JSON now."
+    system = (
+        "Extract financial metrics from Context. Use ONLY numbers written verbatim in Context. "
+        "Output ONLY valid JSON, no markdown, no extra text.\n"
+        "RULES:\n"
+        "- Include a metric only if its exact number appears in Context. Omit others.\n"
+        "- value: raw number, no $/,/% (e.g. 143800000000 for $143.8B, 34.5 for 34.5%)\n"
+        "- change: stated YoY % if given, else 0\n"
+        "- data: [] unless Context has 2+ periods, then [{\"period\":\"\",\"value\":0}]\n"
+        "- Max 1 entry per metric\n"
+        "- No metrics found -> {\"analysis_text\":\"No financial metrics found.\",\"metrics\":[]}\n"
+        "Metrics: Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, "
+        "Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, Net Profit Margin, "
+        "Current Ratio, Return on Assets.\n"
+        "Schema: {\"analysis_text\":\"summary\",\"metrics\":["
+        "{\"title\":\"\",\"value\":0,\"change\":0,\"data\":[],"
+        "\"explain\":{\"meaning\":\"\",\"formula\":\"\",\"benchmark\":\"\"}}]}"
+    )
 
-    result = call_llm(system, user, temperature=0.1, max_tokens=4000)
+    name = state.get("company_name") or state.get("company_id", "")
+    ctx = state.get("context", "")
+    user = f"Company: {name}\n\n"
+    if ctx:
+        user += f"Context:\n{ctx}\n\n"
+    user += f"Return JSON for {name} using ONLY numbers from Context above."
+
+    result = call_llm(system, user, temperature=0.1, max_tokens=3000)
 
     parsed = _parse_llm_json(result)
     if parsed is None:

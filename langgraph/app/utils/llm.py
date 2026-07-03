@@ -1,7 +1,8 @@
 import logging
+import time
 from typing import Optional
 
-from groq import Groq
+from groq import Groq, RateLimitError
 
 from app.config import settings
 
@@ -30,17 +31,23 @@ def call_llm(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
-    try:
-        resp = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=min(max_tokens, 4000),
-        )
-        content = resp.choices[0].message.content or ""
-        if not content.strip():
-            logger.warning("Groq returned empty content for model=%s", model)
-        return content
-    except Exception as e:
-        logger.error("Groq API call failed: %s", e)
-        return f"[Groq API error: {e}]"
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=min(max_tokens, 4000),
+            )
+            content = resp.choices[0].message.content or ""
+            if not content.strip():
+                logger.warning("Groq returned empty content for model=%s", model)
+            return content
+        except RateLimitError as e:
+            wait = 2 ** (attempt + 1) * 5
+            logger.warning("Groq rate limit (attempt %d/3), retrying in %ds: %s", attempt + 1, wait, e)
+            time.sleep(wait)
+        except Exception as e:
+            logger.error("Groq API call failed: %s", e)
+            return f"[Groq API error: {e}]"
+    return "[Groq API error: rate limit exceeded after retries]"

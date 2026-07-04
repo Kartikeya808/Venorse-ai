@@ -129,7 +129,7 @@ export default function DashboardPage() {
       }
 
       // Map metrics with validation
-      const mapped = metrics.map((m: any) => {
+      const mapped: typeof metrics = metrics.map((m: any) => {
         const required = ['title', 'value', 'change', 'trend', 'chartType', 'data', 'explain'];
         const hasAllFields = required.every(field => field in m);
 
@@ -147,7 +147,7 @@ export default function DashboardPage() {
           data: m.data || [],
           explain: m.explain as MetricExplainData,
         };
-      }).filter((m: any) => m !== null);
+      }).filter((m): m is NonNullable<typeof m> => m !== null);
 
       if (mapped.length === 0) {
         setMetricsError(analysis_text || 'No metrics could be extracted from the document. Ensure it contains financial statements.');

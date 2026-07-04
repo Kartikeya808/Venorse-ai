@@ -42,6 +42,10 @@ def call_llm(
 ) -> str:
     client = _get_client()
     model = model or settings.openrouter_model
+    if not model.endswith(":free"):
+        logger.warning("Non-free model '%s' requested, forcing :free suffix to prevent charges", model)
+        model = f"{model}:free"
+    logger.info("LLM call using model=%s max_tokens=%d", model, max_tokens)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},

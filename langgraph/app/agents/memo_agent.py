@@ -49,7 +49,7 @@ def generate_node(state: MemoState) -> dict:
     if state.get("options"):
         user += f"Additional instructions: {state['options']}\n\n"
     user += "Generate a comprehensive research memo."
-    result = call_llm(system, user, max_tokens=8192, model="gpt-oss-20b")
+    result = call_llm(system, user, max_tokens=8192)
     return {"memo_result": result}
 
 

@@ -43,7 +43,7 @@ def analyze_node(state: FinancialState) -> dict:
     if state["context"]:
         user += f"Context:\n{state['context']}\n\n"
     user += "Provide a comprehensive financial analysis."
-    result = call_llm(system, user, model="gpt-oss-20b")
+    result = call_llm(system, user)
     return {"analysis_result": result}
 
 

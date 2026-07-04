@@ -40,7 +40,7 @@ def respond_node(state: ChatState) -> dict:
         user += f"Context from documents:\n{state['context']}\n\n"
     user += f"User: {state['message']}"
 
-    result = call_llm(system, user, model="gpt-oss-20b")
+    result = call_llm(system, user)
     return {"response": result, "error": ""}
 
 

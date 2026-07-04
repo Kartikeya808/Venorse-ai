@@ -76,14 +76,15 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
         filters = {"doc_id": doc_id} if doc_id else None
 
-        # Target canonical SEC filing section headers directly.
-        # Section-header queries return the financial statements themselves;
-        # segment queries are included but de-prioritized.
+        # Query for each financial statement using the line-item names that
+        # actually appear IN the table data (where the numbers live).
+        # Section-header-only chunks (e.g. "Condensed Consolidated Statements
+        # of Income" on its own line) typically contain zero digits and are
+        # filtered out below — we query for the content inside the tables.
         queries = [
-            f"Condensed Consolidated Statements of Income {name} revenue operating income net income earnings per share",
-            f"Condensed Consolidated Balance Sheets {name} assets liabilities debt equity stockholders equity",
-            f"Condensed Consolidated Statements of Cash Flows {name} operating investing financing cash equivalents",
-            f"Revenue by Segment {name} segment revenue operating income",
+            f"{name} Total revenues operating income net income earnings per share income statement",
+            f"{name} Total assets current assets long-term debt stockholders equity balance sheet",
+            f"{name} Net cash operating activities free cash flow capital expenditures cash flow",
         ]
 
         seen = set()
@@ -91,7 +92,7 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
         for q in queries:
             logger.debug("Executing retrieval query: %s", q)
-            docs = search(q, top_k=5, filters=filters)
+            docs = search(q, top_k=8, filters=filters)
             logger.info("Query returned %d documents", len(docs))
 
             for d in docs:
@@ -100,8 +101,28 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
                     seen.add(sig)
                     combined.append(d)
 
+        # Discard chunks with no numerical digits — these are section headers,
+        # boilerplate, or narrative text without financial figures.
+        combined = [d for d in combined if re.search(r"\d", d["content"])]
+        logger.info("After digit-filter: %d chunks", len(combined))
+
+        # Fallback: if targeted queries returned too few digit-bearing chunks,
+        # run a broad query to catch anything we missed (e.g. tables whose
+        # line-item names differ from the expected keywords).
+        if len(combined) < 3:
+            logger.warning("Fewer than 3 digit-bearing chunks, running broad fallback query")
+            before = len(combined)
+            fallback_q = f"{name} financial performance revenue income balance cash"
+            fb_docs = search(fallback_q, top_k=10, filters=filters)
+            for d in fb_docs:
+                sig = (d["content"][:100], d["metadata"].get("chunk"))
+                if sig not in seen and re.search(r"\d", d["content"]):
+                    seen.add(sig)
+                    combined.append(d)
+            logger.info("Fallback added %d chunks (total=%d)", len(combined) - before, len(combined))
+
         # Sort by document position so canonical statements appear in order
-        # (income statement before balance sheet before segment detail).
+        # (income statement body before balance sheet body before segment detail).
         combined.sort(key=lambda d: d["metadata"].get("chunk", 0))
 
         context = format_context(combined, max_chars=8000)

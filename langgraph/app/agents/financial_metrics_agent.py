@@ -122,7 +122,7 @@ def analyze_node(state: FinancialMetricsState) -> dict:
 
     result = call_llm(system, user, temperature=0.1, max_tokens=2000, model="gpt-oss-20b")
 
-    if result.startswith("[Groq API error:"):
+    if result.startswith("[OpenRouter API error:"):
         logger.error("Financial metrics LLM call failed: %s", result)
         return {
             "metrics": [],

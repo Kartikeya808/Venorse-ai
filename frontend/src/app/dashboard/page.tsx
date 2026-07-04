@@ -85,7 +85,7 @@ export default function DashboardPage() {
       const res = await api.post('/agent/financial-metrics', { companyId: selectedDocId, companyName: selectedDoc?.companyName || '' });
       const apiError = res.data?.error;
       if (apiError) {
-        setMetricsError(apiError.startsWith('[Groq API error') ? 'Metrics API unavailable. Please try again later.' : 'No financial data could be extracted from the uploaded documents.');
+        setMetricsError(apiError.startsWith('[OpenRouter API error') ? 'Metrics API temporarily unavailable. Please try again later.' : 'No financial data could be extracted from the uploaded documents.');
         setMetrics([]);
         return;
       }

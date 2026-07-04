@@ -13,8 +13,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     chunk_size: int = 1500
     chunk_overlap: int = 200
-    groq_api_key: str = ""
-    groq_llm_model: str = "llama-3.3-70b-versatile"
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    openrouter_app_url: str = "https://venorse-ai.onrender.com"
+    openrouter_app_name: str = "Venorse"
     jina_api_key: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}

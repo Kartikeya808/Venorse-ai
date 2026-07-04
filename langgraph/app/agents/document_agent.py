@@ -73,7 +73,7 @@ def summarize_node(state: DocumentState) -> dict:
         "Each value must be a string."
     )
     summary = call_llm(system, f"Document extract:\n\n{context}")
-    if summary.startswith("[Groq API error:"):
+    if summary.startswith("[OpenRouter API error:"):
         logger.warning("Summarization failed: %s", summary)
         summary = '{"revenue":"","risks":"","growthDrivers":"","outlook":"","fullSummary":"Document ingested."}'
     return {"summary": summary}

@@ -76,10 +76,14 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
         filters = {"doc_id": doc_id} if doc_id else None
 
+        # Target canonical SEC filing section headers directly.
+        # Section-header queries return the financial statements themselves;
+        # segment queries are included but de-prioritized.
         queries = [
-            f"{name} revenue net income gross margin operating income",
-            f"{name} balance sheet assets debt equity cash",
-            f"{name} cash flow operating free cash flow",
+            f"Condensed Consolidated Statements of Income {name} revenue operating income net income earnings per share",
+            f"Condensed Consolidated Balance Sheets {name} assets liabilities debt equity stockholders equity",
+            f"Condensed Consolidated Statements of Cash Flows {name} operating investing financing cash equivalents",
+            f"Revenue by Segment {name} segment revenue operating income",
         ]
 
         seen = set()
@@ -87,7 +91,7 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
 
         for q in queries:
             logger.debug("Executing retrieval query: %s", q)
-            docs = search(q, top_k=3, filters=filters)
+            docs = search(q, top_k=5, filters=filters)
             logger.info("Query returned %d documents", len(docs))
 
             for d in docs:
@@ -96,7 +100,11 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
                     seen.add(sig)
                     combined.append(d)
 
-        context = format_context(combined, max_chars=4000)
+        # Sort by document position so canonical statements appear in order
+        # (income statement before balance sheet before segment detail).
+        combined.sort(key=lambda d: d["metadata"].get("chunk", 0))
+
+        context = format_context(combined, max_chars=8000)
         total_chars = len(context)
 
         logger.info(
@@ -140,6 +148,14 @@ def analyze_node(state: FinancialMetricsState) -> dict:
         "- data: [] unless Context has 2+ periods, then [{\"period\":\"\",\"value\":0}]\n"
         "- Max 1 entry per metric\n"
         "- No metrics found -> {\"analysis_text\":\"No financial metrics found.\",\"metrics\":[]}\n"
+        "PREFERENCE RULES:\n"
+        "- For Revenue, prefer the 'Total revenues' line from the Consolidated Income Statement over segment-level revenue.\n"
+        "- For Operating Income, prefer the consolidated total from the Income Statement, not segment operating income.\n"
+        "- For Net Income, use the bottom-line Net Income (or Net Income Attributable to parent) from the Income Statement.\n"
+        "- For Cash & Equivalents, prefer the Balance Sheet figure.\n"
+        "- For Debt, prefer the total long-term debt from the Balance Sheet.\n"
+        "- For Operating Cash Flow, use the total from the Cash Flow Statement.\n"
+        "- Prefer consolidated/canonical financial statement figures over segment or narrative detail.\n"
         "Metrics: Revenue, Gross Margin, Operating Margin, Net Income, Free Cash Flow, "
         "Debt-to-Equity, ROE, P/E Ratio, EPS, Operating Income, EBITDA, Net Profit Margin, "
         "Current Ratio, Return on Assets.\n"
@@ -153,7 +169,7 @@ def analyze_node(state: FinancialMetricsState) -> dict:
 
     # Call LLM with retries
     logger.info("Calling LLM for metric extraction")
-    result = call_llm(system, user, temperature=0.1, max_tokens=4000)
+    result = call_llm(system, user, temperature=0.1, max_tokens=6000)
 
     # Handle API errors
     if result.startswith("[OpenRouter API error:"):

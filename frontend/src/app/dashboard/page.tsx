@@ -45,6 +45,7 @@ export default function DashboardPage() {
     explain: MetricExplainData;
   }[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
   const [agentPanelOpen, setAgentPanelOpen] = useState(true);
@@ -79,8 +80,15 @@ export default function DashboardPage() {
 
   const fetchMetrics = async () => {
     setMetricsLoading(true);
+    setMetricsError(null);
     try {
       const res = await api.post('/agent/financial-metrics', { companyId: selectedDocId, companyName: selectedDoc?.companyName || '' });
+      const apiError = res.data?.error;
+      if (apiError) {
+        setMetricsError(apiError.startsWith('[Groq API error') ? 'Metrics API unavailable. Please try again later.' : 'No financial data could be extracted from the uploaded documents.');
+        setMetrics([]);
+        return;
+      }
       const rawMetrics = res.data?.metrics || [];
       const mapped = rawMetrics.map((m: any) => ({
         title: m.title,
@@ -93,8 +101,9 @@ export default function DashboardPage() {
       }));
       if (selectedDocId) metricsCacheRef.current[selectedDocId] = mapped;
       setMetrics(mapped);
-    } catch (err) {
-      console.error('Failed to fetch metrics', err);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to fetch metrics';
+      setMetricsError(msg);
       setMetrics([]);
     } finally {
       setMetricsLoading(false);
@@ -297,6 +306,18 @@ export default function DashboardPage() {
                           </p>
                           <p className="text-sm mt-2" style={{ color: 'var(--ad-text-muted)' }}>
                             The AI agent is analyzing {selectedDoc.companyName}
+                          </p>
+                        </div>
+                      ) : metricsError ? (
+                        <div
+                          className="rounded-2xl border p-8 text-center"
+                          style={{ backgroundColor: 'var(--ad-surface)', borderColor: 'var(--ad-border)' }}
+                        >
+                          <p className="text-sm font-medium mb-1" style={{ color: 'var(--ad-accent)' }}>
+                            Analysis Issue
+                          </p>
+                          <p className="text-sm" style={{ color: 'var(--ad-text-muted)' }}>
+                            {metricsError}
                           </p>
                         </div>
                       ) : metrics.length > 0 ? (

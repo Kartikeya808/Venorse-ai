@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     chunk_size: int = 1500
     chunk_overlap: int = 200
     groq_api_key: str = ""
-    groq_llm_model: str = "gpt-oss-20b"
+    groq_llm_model: str = "llama-3.3-70b-versatile"
     jina_api_key: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}

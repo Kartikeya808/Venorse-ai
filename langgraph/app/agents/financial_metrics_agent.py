@@ -122,10 +122,22 @@ def analyze_node(state: FinancialMetricsState) -> dict:
 
     result = call_llm(system, user, temperature=0.1, max_tokens=2000, model="gpt-oss-20b")
 
+    if result.startswith("[Groq API error:"):
+        logger.error("Financial metrics LLM call failed: %s", result)
+        return {
+            "metrics": [],
+            "analysis_text": "Financial metrics are temporarily unavailable due to an API error. Please try again later.",
+            "error": result,
+        }
+
     parsed = _parse_llm_json(result)
     if parsed is None:
         logger.error("LLM returned unparseable JSON for metrics: %s", result[:200])
-        raise ValueError("LLM failed to return valid JSON for metrics")
+        return {
+            "metrics": [],
+            "analysis_text": "Unable to extract financial metrics from the available documents. Ensure documents contain structured financial data (income statements, balance sheets, etc.) and try again.",
+            "error": "LLM returned unparseable JSON",
+        }
 
     metrics = parsed.get("metrics", [])
     analysis_text = parsed.get("analysis_text", result)
@@ -143,9 +155,13 @@ def analyze_node(state: FinancialMetricsState) -> dict:
             validated.append(m)
     if not validated:
         logger.error("LLM returned metrics with missing fields: %s", result[:200])
-        raise ValueError("LLM returned invalid metrics structure")
+        return {
+            "metrics": [],
+            "analysis_text": "No structured financial metrics could be extracted from the documents. The data may not contain standard financial statement figures.",
+            "error": "LLM returned invalid metrics structure",
+        }
 
-    return {"metrics": validated, "analysis_text": analysis_text}
+    return {"metrics": validated, "analysis_text": analysis_text, "error": ""}
 
 
 def build_financial_metrics_graph():

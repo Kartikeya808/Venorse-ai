@@ -1,5 +1,6 @@
 import logging
 
+import httpx
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +35,29 @@ app.include_router(financial_metrics_router, prefix="/api")
 app.include_router(comparison_router, prefix="/api")
 app.include_router(memo_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+
+
+@app.on_event("startup")
+async def validate_embeddings():
+    if not settings.jina_api_key:
+        logger.warning("JINA_API_KEY is not set — vector store operations will fail. Set it in langgraph/.env")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                "https://api.jina.ai/v1/embeddings",
+                headers={
+                    "Authorization": f"Bearer {settings.jina_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"model": "jina-embeddings-v3", "input": "ping"},
+            )
+            if resp.status_code == 200:
+                logger.info("Jina Embeddings API is reachable and authenticated")
+            else:
+                logger.warning("Jina Embeddings API returned %d: %s", resp.status_code, resp.text[:200])
+    except Exception as e:
+        logger.warning("Jina Embeddings API unreachable at startup: %s", e)
 
 
 @app.get("/api/health")

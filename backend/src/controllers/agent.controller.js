@@ -18,13 +18,44 @@ const financialAnalysis = async (req, res) => {
 const financialMetrics = async (req, res) => {
   try {
     const { companyId, companyName } = req.body;
-    if (!companyId) {
-      return res.status(400).json({ message: "companyId is required" });
+
+    // Validate input
+    if (!companyId || typeof companyId !== 'string') {
+      return res.status(400).json({
+        error: 'INVALID_REQUEST',
+        message: 'companyId is required and must be a string'
+      });
     }
-    const result = await httpClient.processFinancialMetrics(companyId, companyName || "");
-    res.json(result);
+
+    // Log the request
+    console.log(`[METRICS] Processing metrics request: companyId=${companyId}, companyName=${companyName}`);
+
+    try {
+      const result = await httpClient.processFinancialMetrics(companyId, companyName || "");
+
+      // Ensure result has expected structure
+      const response = {
+        company_id: companyId,
+        metrics: result.metrics || [],
+        analysis_text: result.analysis_text || '',
+        error: result.error || '',
+      };
+
+      console.log(`[METRICS] Response: ${response.metrics.length} metrics, error="${response.error}"`);
+      res.json(response);
+    } catch (serviceErr) {
+      console.error(`[METRICS] Service error for companyId=${companyId}:`, serviceErr.message);
+      res.status(500).json({
+        error: 'METRICS_SERVICE_ERROR',
+        message: serviceErr.message,
+      });
+    }
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('[METRICS] Controller error:', err);
+    res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: err.message,
+    });
   }
 };
 

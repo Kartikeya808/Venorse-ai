@@ -81,28 +81,91 @@ export default function DashboardPage() {
   const fetchMetrics = async () => {
     setMetricsLoading(true);
     setMetricsError(null);
+    // Validate prerequisites
+    if (!selectedDocId) {
+      setMetricsError("No document selected");
+      setMetrics([]);
+      setMetricsLoading(false);
+      return;
+    }
+
+    if (!selectedDoc) {
+      setMetricsError("Selected document not found");
+      setMetrics([]);
+      setMetricsLoading(false);
+      return;
+    }
+
     try {
-      const res = await api.post('/agent/financial-metrics', { companyId: selectedDocId, companyName: selectedDoc?.companyName || '' });
-      const apiError = res.data?.error;
-      if (apiError) {
-        setMetricsError(apiError.startsWith('[OpenRouter API error') ? 'Metrics API temporarily unavailable. Please try again later.' : 'No financial data could be extracted from the uploaded documents.');
+      const res = await api.post('/agent/financial-metrics', {
+        companyId: selectedDocId,
+        companyName: selectedDoc.companyName || ''
+      });
+
+      // Check for API-level errors
+      if (!res.data) {
+        setMetricsError('Empty response from server');
         setMetrics([]);
         return;
       }
-      const rawMetrics = res.data?.metrics || [];
-      const mapped = rawMetrics.map((m: any) => ({
-        title: m.title,
-        value: m.value,
-        change: m.change,
-        trend: m.trend as 'up' | 'down',
-        chartType: m.chartType as 'area' | 'line' | 'bar',
-        data: m.data || [],
-        explain: m.explain as MetricExplainData,
-      }));
-      if (selectedDocId) metricsCacheRef.current[selectedDocId] = mapped;
+
+      // Check for agent-level errors
+      const { error, metrics, analysis_text } = res.data;
+
+      if (error && error.trim()) {
+        const errorMsg = error.startsWith('[OpenRouter API error:')
+          ? 'LLM API is temporarily unavailable. Please try again later.'
+          : error;
+        setMetricsError(errorMsg);
+        setMetrics([]);
+        return;
+      }
+
+      // Check if metrics array is valid
+      if (!Array.isArray(metrics)) {
+        setMetricsError('Invalid metrics format from server');
+        setMetrics([]);
+        return;
+      }
+
+      // Map metrics with validation
+      const mapped = metrics.map((m: any) => {
+        const required = ['title', 'value', 'change', 'trend', 'chartType', 'data', 'explain'];
+        const hasAllFields = required.every(field => field in m);
+
+        if (!hasAllFields) {
+          console.warn('Metric missing fields:', m);
+          return null;
+        }
+
+        return {
+          title: m.title,
+          value: m.value,
+          change: m.change,
+          trend: m.trend as 'up' | 'down',
+          chartType: m.chartType as 'area' | 'line' | 'bar',
+          data: m.data || [],
+          explain: m.explain as MetricExplainData,
+        };
+      }).filter((m: any) => m !== null);
+
+      if (mapped.length === 0) {
+        setMetricsError(analysis_text || 'No metrics could be extracted from the document. Ensure it contains financial statements.');
+        setMetrics([]);
+        return;
+      }
+
+      // Cache and set
+      if (selectedDocId) {
+        metricsCacheRef.current[selectedDocId] = mapped;
+      }
       setMetrics(mapped);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to fetch metrics';
+      console.error('Metrics fetch error:', err);
+      const msg = err?.response?.data?.message
+        || err?.response?.data?.error
+        || err?.message
+        || 'Failed to fetch metrics';
       setMetricsError(msg);
       setMetrics([]);
     } finally {
@@ -121,6 +184,7 @@ export default function DashboardPage() {
   }, [activeTab]);
 
   useEffect(() => {
+    setMetricsError(null);
     if (activeTab === 'analytics' && selectedDocId) {
       if (metricsCacheRef.current[selectedDocId!]) {
         setMetrics(metricsCacheRef.current[selectedDocId!]);
@@ -310,11 +374,11 @@ export default function DashboardPage() {
                         </div>
                       ) : metricsError ? (
                         <div
-                          className="rounded-2xl border p-8 text-center"
+                          className="rounded-2xl border p-12 text-center"
                           style={{ backgroundColor: 'var(--ad-surface)', borderColor: 'var(--ad-border)' }}
                         >
-                          <p className="text-sm font-medium mb-1" style={{ color: 'var(--ad-accent)' }}>
-                            Analysis Issue
+                          <p className="font-semibold mb-2" style={{ color: 'var(--ad-text-primary)' }}>
+                            Unable to Load Metrics
                           </p>
                           <p className="text-sm" style={{ color: 'var(--ad-text-muted)' }}>
                             {metricsError}

@@ -101,13 +101,31 @@ def add_document_chunks(chunks: list[str], metadata: list[dict], doc_id: str):
 
 
 def search(query: str, top_k: int = 5, filters: Optional[dict] = None) -> list[dict]:
+    """Search vector store with optional metadata filters.
+
+    Args:
+        query: Search query text
+        top_k: Number of results to return
+        filters: ChromaDB where clause, e.g., {"doc_id": "123"}
+
+    Returns:
+        List of documents with content, metadata, and similarity score
+    """
     collection = get_or_create_collection()
-    where = filters or {}
-    results = collection.query(
-        query_texts=[query],
-        n_results=top_k,
-        where=where or None,
-    )
+
+    # Ensure filters is dict (ChromaDB requires dict or None, not empty {})
+    where = filters if filters else None
+
+    try:
+        results = collection.query(
+            query_texts=[query],
+            n_results=top_k,
+            where=where,
+        )
+    except Exception as e:
+        logger.error("ChromaDB query failed: %s", e)
+        return []
+
     documents = []
     if results["documents"] and results["documents"][0]:
         for i, doc in enumerate(results["documents"][0]):
@@ -116,6 +134,8 @@ def search(query: str, top_k: int = 5, filters: Optional[dict] = None) -> list[d
                 "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
                 "score": results["distances"][0][i] if results["distances"] else 0,
             })
+
+    logger.info("Search returned %d results for query (filtered=%s)", len(documents), bool(where))
     return documents
 
 

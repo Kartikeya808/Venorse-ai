@@ -12,6 +12,7 @@ from app.routers.financial_metrics_router import router as financial_metrics_rou
 from app.routers.comparison_router import router as comparison_router
 from app.routers.memo_router import router as memo_router
 from app.routers.chat_router import router as chat_router
+from app.routers.debug_router import router as debug_router
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ app.include_router(financial_metrics_router, prefix="/api")
 app.include_router(comparison_router, prefix="/api")
 app.include_router(memo_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(debug_router, prefix="/api/debug", tags=["debug"])
 
 
 @app.on_event("startup")

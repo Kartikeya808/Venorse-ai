@@ -67,9 +67,13 @@ class FinancialMetricsState(TypedDict):
 
 
 def retrieve_node(state: FinancialMetricsState) -> dict:
+    """Retrieve financial context from vector store."""
     try:
         name = state.get("company_name") or state.get("company_id", "")
         doc_id = state.get("company_id", "")
+
+        logger.info("Retrieving financial data for company=%s doc_id=%s", name, doc_id)
+
         filters = {"doc_id": doc_id} if doc_id else None
 
         queries = [
@@ -77,10 +81,15 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
             f"{name} balance sheet assets debt equity cash",
             f"{name} cash flow operating free cash flow",
         ]
+
         seen = set()
         combined = []
+
         for q in queries:
+            logger.debug("Executing retrieval query: %s", q)
             docs = search(q, top_k=3, filters=filters)
+            logger.info("Query returned %d documents", len(docs))
+
             for d in docs:
                 sig = (d["content"][:100], d["metadata"].get("chunk"))
                 if sig not in seen:
@@ -88,13 +97,39 @@ def retrieve_node(state: FinancialMetricsState) -> dict:
                     combined.append(d)
 
         context = format_context(combined, max_chars=4000)
+        total_chars = len(context)
+
+        logger.info(
+            "Retrieval complete: %d unique chunks, %d chars context, filter=%s",
+            len(combined), total_chars, bool(filters)
+        )
+
+        if total_chars < 100:
+            logger.warning("Context too small (%d chars), might result in poor analysis", total_chars)
+
         return {"context": context, "error": ""}
     except Exception as e:
-        logger.warning("Retrieval failed (%s), proceeding without context", e)
-        return {"context": "", "error": ""}
+        logger.error("Retrieval failed: %s", e, exc_info=True)
+        return {"context": "", "error": str(e)}
 
 
 def analyze_node(state: FinancialMetricsState) -> dict:
+    """Analyze financial metrics from context."""
+    name = state.get("company_name") or state.get("company_id", "")
+    ctx = state.get("context", "")
+
+    logger.info("Analyzing metrics for %s (context_len=%d)", name, len(ctx))
+
+    # Early exit if no context
+    if not ctx.strip():
+        logger.warning("No financial data found for %s", name)
+        return {
+            "metrics": [],
+            "analysis_text": "No financial data found for this document. Ensure the document contains structured financial statements (income statement, balance sheet, or cash flow).",
+            "error": ""
+        }
+
+    # Build prompts
     system = (
         "Extract financial metrics from Context. Use ONLY numbers written verbatim in Context. "
         "Output ONLY valid JSON, no markdown, no extra text.\n"
@@ -113,54 +148,72 @@ def analyze_node(state: FinancialMetricsState) -> dict:
         "\"explain\":{\"meaning\":\"\",\"formula\":\"\",\"benchmark\":\"\",\"interpretation\":\"\"}}]}"
     )
 
-    name = state.get("company_name") or state.get("company_id", "")
-    ctx = state.get("context", "")
-    if not ctx.strip():
-        return {"metrics": [], "analysis_text": "No financial data found for this document."}
     user = f"Company: {name}\n\nContext:\n{ctx}\n\n"
     user += f"Return JSON for {name} using ONLY numbers from Context above. If no numbers match any metric, return {{\"analysis_text\":\"No metrics found\",\"metrics\":[]}}."
 
+    # Call LLM with retries
+    logger.info("Calling LLM for metric extraction")
     result = call_llm(system, user, temperature=0.1, max_tokens=4000)
 
+    # Handle API errors
     if result.startswith("[OpenRouter API error:"):
-        logger.error("Financial metrics LLM call failed: %s", result)
+        logger.error("OpenRouter API error: %s", result)
         return {
             "metrics": [],
             "analysis_text": "Financial metrics are temporarily unavailable due to an API error. Please try again later.",
             "error": result,
         }
 
+    # Parse JSON
     parsed = _parse_llm_json(result)
     if parsed is None:
-        logger.error("LLM returned unparseable JSON for metrics: %s", result[:200])
+        logger.error("LLM returned unparseable JSON: %s", result[:200])
         return {
             "metrics": [],
-            "analysis_text": "Unable to extract financial metrics from the available documents. Ensure documents contain structured financial data (income statements, balance sheets, etc.) and try again.",
-            "error": "LLM returned unparseable JSON",
+            "analysis_text": "Unable to parse financial metrics. The response was invalid JSON.",
+            "error": "Invalid JSON from LLM",
         }
 
     metrics = parsed.get("metrics", [])
     analysis_text = parsed.get("analysis_text", result)
+
+    logger.info("Parsed %d metrics from LLM", len(metrics))
+
+    # Validate and format metrics
     validated = []
     for m in metrics:
-        if all(k in m for k in ("title", "value", "change", "trend", "chartType", "data", "explain")):
+        required_fields = ("title", "value", "change", "trend", "chartType", "data", "explain")
+        missing = [f for f in required_fields if f not in m]
+
+        if missing:
+            logger.warning("Skipping metric %s: missing fields %s", m.get("title", "unknown"), missing)
+            continue
+
+        try:
             m["value"] = _fmt_val(m["value"], m["title"])
             m["change"] = _fmt_chg(m["change"], m["title"])
+
             if "explain" in m:
                 for ek in ("meaning", "formula", "benchmark", "interpretation"):
                     if ek in m["explain"]:
                         m["explain"][ek] = str(m["explain"][ek])
                 if "value" in m["explain"]:
                     m["explain"]["value"] = _fmt_val(m["explain"]["value"], m["title"])
+
             validated.append(m)
+        except Exception as e:
+            logger.warning("Error formatting metric %s: %s", m.get("title"), e)
+            continue
+
     if not validated:
-        logger.error("LLM returned metrics with missing fields: %s", result[:200])
+        logger.error("No valid metrics extracted from LLM response")
         return {
             "metrics": [],
-            "analysis_text": "No structured financial metrics could be extracted from the documents. The data may not contain standard financial statement figures.",
-            "error": "LLM returned invalid metrics structure",
+            "analysis_text": "No structured financial metrics could be extracted from the documents.",
+            "error": "No valid metrics",
         }
 
+    logger.info("Successfully validated %d metrics", len(validated))
     return {"metrics": validated, "analysis_text": analysis_text, "error": ""}
 
 
